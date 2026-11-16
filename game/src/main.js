@@ -708,5 +708,18 @@ playerMover.teleport(-2.5, 0, 15.5, 0);
 syncCamera();
 syncHud();
 hud.showOverlay('start');
+// Debug handle for automated play-testing: live match state and actors, plus a
+// fast-forward that runs N fixed simulation steps without rendering.
+window.__breakline = {
+  match, actors, player, map, renderer,
+  freeze(value) {
+    frozen = value;
+  },
+  stepN(n) {
+    for (let i = 0; i < n; i += 1) step(FIXED_STEP);
+    syncCamera();
+    syncHud();
+  },
+};
 if (shot) runShot(shot);
 else requestAnimationFrame(frame);

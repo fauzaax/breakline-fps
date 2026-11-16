@@ -238,7 +238,7 @@ export function createMatch(scene, map, random) {
           if (actor.team !== 'attack' || !actor.alive) continue;
           const dx = actor.mover.body.position.x - charge.position.x;
           const dz = actor.mover.body.position.z - charge.position.z;
-          if (dx * dx + dz * dz < 1.2 * 1.2) {
+          if (dx * dx + dz * dz < 1.6 * 1.6) {
             charge.holder = actor;
             charge.dropped = false;
             chargeGroup.visible = false;

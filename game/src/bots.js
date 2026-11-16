@@ -96,7 +96,7 @@ export function createBotAI(actor, deps) {
     for (const enemy of world.enemies) {
       if (!enemy.alive) continue;
       const dist = actor.mover.body.position.distanceToSquared(enemy.mover.body.position);
-      if (dist > 45 * 45) continue;
+      if (dist > 30 * 30) continue;
       if (!deps.canSee(actor, enemy)) continue;
       if (dist < bestDist) {
         bestDist = dist;
@@ -114,7 +114,10 @@ export function createBotAI(actor, deps) {
       ai.lostTimer = 0;
     } else if (ai.target) {
       ai.lostTimer += PERCEIVE_EVERY;
-      if (ai.lostTimer > LOST_SIGHT_TIMEOUT) ai.target = null;
+      if (ai.lostTimer > LOST_SIGHT_TIMEOUT) {
+        ai.target = null;
+        decideRoute(world);
+      }
     }
   }
 
@@ -156,19 +159,14 @@ export function createBotAI(actor, deps) {
     return wish;
   }
 
-  function engage(dt, world) {
+  // Aim and fire at the current target: reaction delay, burst fire, reloads, and
+  // aim error that grows while moving, like the player's spread. Movement is separate,
+  // so a bot can shoot on the move while it keeps pushing a route.
+  function combatFire(dt) {
     const body = actor.mover.body;
     const enemy = ai.target;
     const enemyPos = enemy.mover.body.position;
     ai.reaction -= dt;
-    // Face the enemy, strafe in short bursts, stand still for the accurate shots.
-    ai.strafeTimer -= dt;
-    if (ai.strafeTimer <= 0) {
-      ai.strafeTimer = range(random, 0.5, 1.1);
-      ai.strafeDir = random() < 0.4 ? 0 : -ai.strafeDir;
-    }
-    toTarget.set(enemyPos.x - body.position.x, 0, enemyPos.z - body.position.z).normalize();
-    wish.set(-toTarget.z * ai.strafeDir, 0, toTarget.x * ai.strafeDir);
     const facing = faceToward(enemyPos, dt, 4.5);
     const stats = WEAPONS[actor.weaponKey];
     if (ai.reloading > 0) {
@@ -178,11 +176,11 @@ export function createBotAI(actor, deps) {
         ai.mag += take;
         if (Number.isFinite(ai.reserve)) ai.reserve -= take;
       }
-      return wish;
+      return;
     }
     if (ai.burstPause > 0) {
       ai.burstPause -= dt;
-      return wish;
+      return;
     }
     if (ai.burstLeft <= 0) {
       ai.burstLeft = stats.kind === 'scatter' ? 1 : Math.floor(range(random, 3, 6));
@@ -211,6 +209,19 @@ export function createBotAI(actor, deps) {
         ai.burstPause = range(random, 0.35, 0.65);
       }
     }
+  }
+
+  // Short lateral strafes while fighting up close; sometimes stands still to aim.
+  function strafeWish(dt) {
+    const body = actor.mover.body;
+    const enemyPos = ai.target.mover.body.position;
+    ai.strafeTimer -= dt;
+    if (ai.strafeTimer <= 0) {
+      ai.strafeTimer = range(random, 0.5, 1.1);
+      ai.strafeDir = random() < 0.4 ? 0 : -ai.strafeDir;
+    }
+    toTarget.set(enemyPos.x - body.position.x, 0, enemyPos.z - body.position.z).normalize();
+    wish.set(-toTarget.z * ai.strafeDir, 0, toTarget.x * ai.strafeDir);
     return wish;
   }
 
@@ -251,11 +262,14 @@ export function createBotAI(actor, deps) {
 
   function decideRoute(world) {
     const charge = world.charge;
+    // Always re-plan from the bot's current position: a previous route may have been
+    // consumed or its path replaced by an investigation, so "already on this route"
+    // is never a reason to stand still.
     if (actor.team === 'attack') {
       if (charge.planted) {
-        // Defend the planted site.
-        const siteNode = world.calledSite.id === 'A' ? 6 : 15;
-        if (ai.state !== 'hold' || ai.route[0] !== siteNode) startRoute([siteNode], actor.mover.body.yaw);
+        // Defend the site that actually holds the charge.
+        const siteNode = charge.site === 'A' ? 6 : 15;
+        startRoute([siteNode], actor.mover.body.yaw);
         return;
       }
       if (ai.role === 'site') startRoute(world.siteRoute, world.siteHoldYaw);
@@ -264,7 +278,7 @@ export function createBotAI(actor, deps) {
     } else {
       if (charge.planted) {
         const siteNode = charge.site === 'A' ? 6 : 15;
-        if (ai.state !== 'hold' || ai.route[0] !== siteNode) startRoute([siteNode], actor.mover.body.yaw);
+        startRoute([siteNode], actor.mover.body.yaw);
         return;
       }
       startRoute([ai.holdNode], ai.holdYaw);
@@ -316,14 +330,35 @@ export function createBotAI(actor, deps) {
       if (channelWish) {
         moveWish = channelWish;
       } else if (ai.target) {
-        ai.state = 'engage';
-        moveWish = engage(dt, world);
+        // Fight: up close, strafe and stand to aim; at range, keep pushing the route
+        // while firing on the move instead of stalling in the open.
+        combatFire(dt);
+        const dist = body.position.distanceTo(ai.target.mover.body.position);
+        if (dist < 22 || ai.state === 'hold' || ai.state === 'engage') {
+          ai.state = 'engage';
+          moveWish = strafeWish(dt);
+        } else {
+          moveWish = moveAlongPath(dt);
+        }
+      } else if (actor.team === 'attack' && world.charge.dropped && !world.charge.planted) {
+        // Fetch the dropped charge: walk straight at it until the match hands it over.
+        const charge = world.charge;
+        toTarget.set(charge.position.x - body.position.x, 0, charge.position.z - body.position.z);
+        if (toTarget.length() > 1) {
+          toTarget.normalize();
+          wish.copy(toTarget);
+          faceToward(charge.position, dt, 6);
+          moveWish = wish;
+        } else {
+          moveWish = holdScan(dt, world);
+        }
       } else if (ai.state === 'investigate' && ai.investigate) {
         ai.investigateTimer -= dt;
         moveWish = moveAlongPath(dt);
-        const dx = ai.investigate.x - body.position.x;
-        const dz = ai.investigate.z - body.position.z;
-        if ((dx * dx + dz * dz < 1.5 * 1.5 && ai.state === 'hold') || ai.investigateTimer <= 0) {
+        // Done when the walk ends (the nearest node is the destination: the sound's
+        // exact point may sit metres past it) or the timer runs out — either way the
+        // bot takes a fresh plan instead of idling on a stale investigation.
+        if (ai.state === 'hold' || ai.investigateTimer <= 0) {
           ai.investigate = null;
           decideRoute(world);
         }

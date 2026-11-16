@@ -107,6 +107,12 @@ export function createWeaponSet(camera) {
     camera.add(built.group);
     models[key] = built;
   }
+  models.P9.group.visible = true;
+
+  // A dim warm light at the camera so the view model reads against the dusk scene.
+  const viewLight = new THREE.PointLight(new THREE.Color(0xffd9a8), 1.6, 3.5);
+  viewLight.position.set(0.1, 0.1, -0.4);
+  camera.add(viewLight);
 
   const flash = new THREE.Mesh(
     new THREE.PlaneGeometry(0.26, 0.26),

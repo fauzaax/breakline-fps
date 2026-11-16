@@ -242,17 +242,17 @@ export function createMap(scene) {
         low: { value: new THREE.Color(PALETTE.skyLow) },
       },
       vertexShader: 'varying vec3 vPos; void main() { vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: 'uniform vec3 top; uniform vec3 low; varying vec3 vPos; void main() { float t = clamp(normalize(vPos).y * 1.6 + 0.12, 0.0, 1.0); gl_FragColor = vec4(mix(low, top, pow(t, 0.8)), 1.0); }',
+      fragmentShader: 'uniform vec3 top; uniform vec3 low; varying vec3 vPos; void main() { float t = clamp(normalize(vPos).y * 1.2 + 0.24, 0.0, 1.0); gl_FragColor = vec4(mix(low, top, pow(t, 0.8)), 1.0); }',
     }),
   );
   scene.add(sky);
 
   scene.fog = new THREE.Fog(new THREE.Color(PALETTE.fog), 34, 120);
 
-  const hemi = new THREE.HemisphereLight(new THREE.Color('#7d90b5'), new THREE.Color('#4a3b2c'), 0.85);
+  const hemi = new THREE.HemisphereLight(new THREE.Color('#8fa3c8'), new THREE.Color('#5a4a38'), 1.25);
   scene.add(hemi);
 
-  const sun = new THREE.DirectionalLight(new THREE.Color('#ffb469'), 2.6);
+  const sun = new THREE.DirectionalLight(new THREE.Color('#ffb469'), 3.2);
   sun.position.set(-34, 26, 14);
   sun.target.position.set(4, 0, -4);
   sun.castShadow = true;
@@ -265,7 +265,7 @@ export function createMap(scene) {
   sun.shadow.bias = -0.0006;
   scene.add(sun, sun.target);
 
-  const fill = new THREE.DirectionalLight(new THREE.Color('#6a7ba8'), 0.5);
+  const fill = new THREE.DirectionalLight(new THREE.Color('#6a7ba8'), 0.7);
   fill.position.set(26, 18, -10);
   scene.add(fill);
 
