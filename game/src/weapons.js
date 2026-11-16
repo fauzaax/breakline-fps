@@ -73,7 +73,7 @@ function buildModel(key) {
     part(0.045, 0.045, 0.4, 0, 0.025, -0.38, GRIP, group);
     part(0.075, 0.08, 0.22, 0, -0.02, 0.3, GRIP, group);
     part(0.03, 0.05, 0.12, 0, -0.07, -0.12, GRIP, group);
-    part(0.02, 0.02, 0.1, 0, 0.06, -0.05, ACCENT, group);
+    part(0.015, 0.015, 0.06, 0, 0.058, -0.05, ACCENT, group);
     muzzle = new THREE.Vector3(0, 0.025, -0.6);
   } else if (key === 'VEX9') {
     part(0.08, 0.09, 0.3, 0, 0, 0, BODY, group);
@@ -102,7 +102,7 @@ export function createWeaponSet(camera) {
   const models = {};
   for (const key of Object.keys(WEAPONS)) {
     const built = buildModel(key);
-    built.group.position.set(0.24, -0.2, -0.42);
+    built.group.position.set(0.26, -0.22, -0.48);
     built.group.visible = false;
     camera.add(built.group);
     models[key] = built;
@@ -140,11 +140,11 @@ export function createWeaponSet(camera) {
     state.bloom = Math.max(0, state.bloom - dt * 0.03);
     state.switching = Math.max(0, state.switching - dt);
     const model = models[state.current].group;
-    const baseZ = -0.42 + state.kick;
+    const baseZ = -0.48 + state.kick;
     if (state.scoped && state.current === 'LONGSHOT') {
       model.position.set(0, -0.148, -0.34 + state.kick);
     } else {
-      model.position.set(0.24, -0.2 + (state.switching > 0 ? -0.08 * state.switching * 4 : 0), baseZ);
+      model.position.set(0.26, -0.22 + (state.switching > 0 ? -0.08 * state.switching * 4 : 0), baseZ);
     }
     model.rotation.x = state.kick * 2.2;
     if (state.reloadLeft > 0) {

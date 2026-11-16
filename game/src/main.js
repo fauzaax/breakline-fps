@@ -147,6 +147,7 @@ function shootBot(bot, aimPoint, spread) {
   tmpDir.y += (random() * 2 - 1) * spread;
   tmpDir.z += (random() * 2 - 1) * spread;
   tmpDir.normalize();
+  scene.updateMatrixWorld(true);
   raycaster.set(tmpOrigin, tmpDir);
   const hit = raycaster.intersectObjects(botTargets, false)[0];
   bot.soldier.showFlash();
@@ -195,6 +196,7 @@ let shotFired = false;
 function playerShoot() {
   const stats = weaponSet.stats();
   if (!weaponSet.pullTrigger()) return;
+  scene.updateMatrixWorld(true);
   camera.updateMatrixWorld(true);
   weaponSet.muzzleWorld(tmpMuzzle);
   camera.getWorldDirection(tmpDir);
@@ -489,6 +491,7 @@ function refreshWorlds() {
 function step(dt) {
   elapsed += dt;
   throwCooldown = Math.max(0, throwCooldown - dt);
+  scene.updateMatrixWorld(true);
   const keys = input.state.keys;
   const body = playerMover.body;
 
@@ -614,9 +617,10 @@ function runShot(name) {
   hud.hideBanner();
 
   if (name === 'start') {
-    playerMover.teleport(-8, 0, 16.5, 0);
+    // Vista straight down mid: gantry, mid door and mast against the dusk sky.
+    playerMover.teleport(0, 0, 13, 0);
     settle(10);
-    aimAt(new THREE.Vector3(2, 2.2, -9));
+    aimAt(new THREE.Vector3(0, 2.2, -12));
     hud.showOverlay('start');
   } else if (name === 'buy') {
     player.money = 2400;
@@ -639,8 +643,8 @@ function runShot(name) {
     playerMover.teleport(0, 0, 6.5, 0);
     teleportBot(defenders[0], 1.5, -1.5, Math.PI);
     teleportBot(defenders[1], -3.5, -4.5, Math.PI - 0.4);
-    teleportBot(attackers[1], -1.4, 5.2, 0.2);
-    teleportBot(attackers[2], 2.2, 7.8, -0.3);
+    teleportBot(attackers[1], -4, 3.5, 0.3);
+    teleportBot(attackers[2], 4.5, 3.5, -0.3);
     settle(24);
     const enemy = defenders[0];
     aimAt(new THREE.Vector3(enemy.mover.body.position.x, 1.2, enemy.mover.body.position.z));
@@ -659,24 +663,29 @@ function runShot(name) {
     weaponSet.give('KR7');
     weaponSet.switchTo('KR7');
     playerMover.teleport(0, 0, 6.5, 0);
-    teleportBot(defenders[0], 1.5, -1.5, Math.PI);
-    teleportBot(defenders[1], -3.5, -4.5, Math.PI - 0.4);
-    teleportBot(defenders[2], 4, -3, Math.PI + 0.3);
-    teleportBot(defenders[3], -1, -6.5, Math.PI);
+    // Defenders in the open mid-lane, all on clear sightlines, so aimed fire drops
+    // every one of them; no steps run between shots, so nobody strafes behind cover.
+    teleportBot(defenders[0], -4.5, -2, Math.PI);
+    teleportBot(defenders[1], -1.5, -2, Math.PI);
+    teleportBot(defenders[2], 1.5, -2, Math.PI);
+    teleportBot(defenders[3], 4.5, -2, Math.PI);
     settle(10);
     for (const enemy of defenders) {
-      for (let round = 0; round < 4 && enemy.alive; round += 1) {
+      weaponSet.refillAll();
+      let shots = 0;
+      while (enemy.alive && shots < 12) {
         aimAt(new THREE.Vector3(enemy.mover.body.position.x, 1.2, enemy.mover.body.position.z));
         syncCamera();
         weaponSet.state.cooldown = 0;
         playerShoot();
-        settle(2);
+        shots += 1;
       }
     }
     settle(10);
     drainEvents();
     aimAt(new THREE.Vector3(0, 1.4, -9));
-    hud.banner('ROUND WON', 'Sentinels eliminated', 'att', Infinity);
+    // The banner re-shows the real round-end event (elimination win) persistently.
+    if (match.state.phase === 'roundEnd') hud.banner('ROUND WON', 'Sentinels eliminated', 'att', Infinity);
   }
   syncCamera();
   syncHud();
